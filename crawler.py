@@ -1,9 +1,11 @@
+#!/usr/bin/python
 
-# import HTMLSession from requests_html
 from requests_html import HTMLSession
 from bs4 import BeautifulSoup
 import json
 import time
+import sys
+import getopt
 
 def get_html(id, session):
     try:
@@ -62,12 +64,36 @@ def get_nonogram_from_html(html):
 
     return { 'verticals': verticals, 'horizontals': horizontals }
 
-def main():
+
+def print_usage():
+    print("usage: python3 crawler.py [-h] [--from] [--to]")
+
+
+def main(argv):
     NONOGRAM_MAX_INDEX = 54216
+    
+    id_from = 1
+    id_to = NONOGRAM_MAX_INDEX
+
+    try:
+        opts, args = getopt.getopt(argv,"h",["from=","to="])
+    except getopt.GetoptError:
+        print_usage()
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt == "-h":
+            print_usage()
+        elif opt == "--from":
+            id_from = int(arg)
+        elif opt == "--to":
+            id_to = int(arg)
+    
+    print("id range: ({}, ..., {})".format(id_from, id_to))
 
     session = HTMLSession()
 
-    for id in range(NONOGRAM_MAX_INDEX):
+    for id in range(id_from, id_to + 1):
         html = get_html(id, session)
 
         if html is None:
@@ -82,4 +108,4 @@ def main():
         print("nonograms/i/{} crawled successfully".format(id))
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
