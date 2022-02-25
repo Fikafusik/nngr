@@ -6,6 +6,7 @@ import json
 import time
 import sys
 import getopt
+import os
 
 def get_html(id, session):
     try:
@@ -65,18 +66,28 @@ def get_nonogram_from_html(html):
     return { 'verticals': verticals, 'horizontals': horizontals }
 
 
+def create_dir(dir):
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+        print("Created Directory : ", dir)
+    else:
+        print("Directory already existed : ", dir)
+    return dir
+
+
 def print_usage():
     print("usage: python3 crawler.py [-h] [--from] [--to]")
 
 
 def main(argv):
     NONOGRAM_MAX_INDEX = 54216
-    
+    ID_PER_FOLDER = 1000
+
     id_from = 1
     id_to = NONOGRAM_MAX_INDEX
 
     try:
-        opts, args = getopt.getopt(argv,"h",["from=","to="])
+        opts, args = getopt.getopt(argv,"h", ["from=","to="])
     except getopt.GetoptError:
         print_usage()
         sys.exit(2)
@@ -101,11 +112,21 @@ def main(argv):
             continue
 
         nonogram = get_nonogram_from_html(html)
-
-        with open('nonograms/{}.json'.format(id), 'w') as json_file:
-            json.dump(nonogram, json_file)
-
+        
+        folder_id = id // ID_PER_FOLDER
+        try:
+            with open('nonograms/{:02d}/{:05d}.json'.format(folder_id, id), 'w') as json_file:
+                json.dump(nonogram, json_file)
+        except:
+            create_dir('nonograms/{:02d}'.format(folder_id))
+            try:
+                with open('nonograms/{:02d}/{:05d}.json'.format(folder_id, id), 'w') as json_file:
+                    json.dump(nonogram, json_file)
+            except:
+                print("-_- shit happens")
+        
         print("nonograms/i/{} crawled successfully".format(id))
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
