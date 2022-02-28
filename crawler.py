@@ -79,15 +79,37 @@ def print_usage():
     print("usage: python3 crawler.py [-h] [--from] [--to]")
 
 
-def main(argv):
-    NONOGRAM_MAX_INDEX = 54216
+def save_nonogram(nonogram, id, output_dir):
     ID_PER_FOLDER = 1000
 
-    id_from = 1
-    id_to = NONOGRAM_MAX_INDEX
+    folder_id = id // ID_PER_FOLDER
+    path = '{}/{:02d}'.format(output_dir, folder_id)
+    fullpath = '{}/{:05d}.json'.format(path, id)
 
     try:
-        opts, args = getopt.getopt(argv,"h", ["from=","to="])
+        with open(fullpath, 'w') as json_file:
+            json.dump(nonogram, json_file)
+    except:
+        create_dir(path)
+        try:
+            with open(fullpath, 'w') as json_file:
+                json.dump(nonogram, json_file)
+        except:
+            return False
+    return True
+
+
+def main(argv):
+    NONOGRAM_MIN_INDEX = 1
+    NONOGRAM_MAX_INDEX = 54216
+    DEFAULT_OUTPUT_DIR = "nonograms"
+
+    id_from = NONOGRAM_MIN_INDEX
+    id_to = NONOGRAM_MAX_INDEX
+    output_dir = DEFAULT_OUTPUT_DIR
+
+    try:
+        opts, args = getopt.getopt(argv,"h", ["from=", "to=", "output_dir="])
     except getopt.GetoptError:
         print_usage()
         sys.exit(2)
@@ -99,6 +121,8 @@ def main(argv):
             id_from = int(arg)
         elif opt == "--to":
             id_to = int(arg)
+        elif opt == "--output_dir":
+            output_dir = arg
     
     print("id range: ({}, ..., {})".format(id_from, id_to))
 
@@ -113,19 +137,10 @@ def main(argv):
 
         nonogram = get_nonogram_from_html(html)
         
-        folder_id = id // ID_PER_FOLDER
-        try:
-            with open('nonograms/{:02d}/{:05d}.json'.format(folder_id, id), 'w') as json_file:
-                json.dump(nonogram, json_file)
-        except:
-            create_dir('nonograms/{:02d}'.format(folder_id))
-            try:
-                with open('nonograms/{:02d}/{:05d}.json'.format(folder_id, id), 'w') as json_file:
-                    json.dump(nonogram, json_file)
-            except:
-                print("-_- shit happens")
-        
-        print("nonograms/i/{} crawled successfully".format(id))
+        if save_nonogram(nonogram, id, output_dir):
+            print("nonograms/i/{} crawled successfully".format(id))
+        else:
+            print("failed to save nonograms/i/{}".format(id))
 
 
 if __name__ == "__main__":
