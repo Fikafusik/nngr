@@ -101,12 +101,13 @@ class NonogramType(enum.Enum):
     colour = 2
 
 class NonogramCrawler:
-    NONOGRAM_MIN_INDEX = 1
-    NONOGRAM_MAX_INDEX = 54216
-    DEFAULT_BASE_URL = 'https://www.nonograms.ru/'
-    DEFAULT_ENDPOINT_URL = 'nonograms/i/'
-    DEFAULT_OUTPUT_DIR = "nonograms"
-    DEFAULT_SLEEP_AFTER_ERROR = 0.25
+    NONOGRAM_MIN_INDEX         = 1
+    NONOGRAM_MAX_INDEX         = 54216
+    DEFAULT_BASE_URL           = 'https://www.nonograms.ru/'
+    DEFAULT_ENDPOINT_URL       = 'nonograms/i/'
+    DEFAULT_OUTPUT_DIR         = "nonograms"
+    DEFAULT_SLEEP_AFTER_ERROR  = 0.25
+    DEFAULT_NONOGRAMS_PER_PACK = 1000
 
     def __init__(self):
         self.nonogram_type     = NonogramType.black_and_white
@@ -137,8 +138,7 @@ class NonogramCrawler:
     def run(self):
         session = HTMLSession()
 
-        DEFAULT_NONOGRAMS_PER_PACK = 1000
-        nonograms_per_pack = DEFAULT_NONOGRAMS_PER_PACK
+        nonograms_per_pack = NonogramCrawler.DEFAULT_NONOGRAMS_PER_PACK
 
         first_pack = self.id_from // nonograms_per_pack
         last_pack = self.id_to // nonograms_per_pack
