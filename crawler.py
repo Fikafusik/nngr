@@ -81,25 +81,20 @@ def print_usage():
     print("usage: python3 crawler.py [-h] [--from] [--to]")
 
 
-def save_nonogram(nonogram, id, output_dir):
-    ID_PER_FOLDER = 1000
-
-    folder_id = id // ID_PER_FOLDER
-    path = '{}/{:02d}'.format(output_dir, folder_id)
-    fullpath = '{}/{:05d}.json'.format(path, id)
+def save_pack(pack, output_dir):
+    path = '{}/pack_{}.json'.format(output_dir, pack['id'])
 
     try:
-        with open(fullpath, 'w') as json_file:
-            json.dump(nonogram, json_file)
+        with open(path, 'w') as json_file:
+            json.dump(pack, json_file)
     except:
         create_dir(path)
         try:
-            with open(fullpath, 'w') as json_file:
-                json.dump(nonogram, json_file)
+            with open(path, 'w') as json_file:
+                json.dump(pack, json_file)
         except:
             return False
     return True
-
 
 class NonogramType(enum.Enum):
     black_and_white = 1
@@ -108,16 +103,18 @@ class NonogramType(enum.Enum):
 class NonogramCrawler:
     NONOGRAM_MIN_INDEX = 1
     NONOGRAM_MAX_INDEX = 54216
+    DEFAULT_BASE_URL = 'https://www.nonograms.ru/'
+    DEFAULT_ENDPOINT_URL = 'nonograms/i/'
     DEFAULT_OUTPUT_DIR = "nonograms"
     DEFAULT_SLEEP_AFTER_ERROR = 0.25
 
     def __init__(self):
-        self.nonogram_type = NonogramType.black_and_white
-        self.base_url = 'https://www.nonograms.ru/'
-        self.endpoint_url = 'nonograms/i/'
-        self.id_from = NonogramCrawler.NONOGRAM_MIN_INDEX
-        self.id_to = NonogramCrawler.NONOGRAM_MAX_INDEX
-        self.output_dir = NonogramCrawler.DEFAULT_OUTPUT_DIR
+        self.nonogram_type     = NonogramType.black_and_white
+        self.base_url          = NonogramCrawler.DEFAULT_BASE_URL
+        self.endpoint_url      = NonogramCrawler.DEFAULT_ENDPOINT_URL
+        self.id_from           = NonogramCrawler.NONOGRAM_MIN_INDEX
+        self.id_to             = NonogramCrawler.NONOGRAM_MAX_INDEX
+        self.output_dir        = NonogramCrawler.DEFAULT_OUTPUT_DIR
         self.sleep_after_error = NonogramCrawler.DEFAULT_SLEEP_AFTER_ERROR
 
 
@@ -140,19 +137,44 @@ class NonogramCrawler:
     def run(self):
         session = HTMLSession()
 
-        for id in range(self.id_from, self.id_to + 1):
-            html = get_html(session, self.base_url, self.endpoint_url, id)
+        DEFAULT_NONOGRAMS_PER_PACK = 1000
+        nonograms_per_pack = DEFAULT_NONOGRAMS_PER_PACK
 
-            if html is None:
-                time.sleep(self.sleep_after_error)
-                continue
+        first_pack = self.id_from // nonograms_per_pack
+        last_pack = self.id_to // nonograms_per_pack
 
-            nonogram = get_nonogram_from_html(html, id)
+        print('first pack #{}'.format(first_pack))
+        print('last_pack #{}'.format(last_pack))
+
+        for pack in range(first_pack, last_pack + 1):
+            id_from = self.id_from
+            id_to = self.id_to
+
+            if pack != first_pack:
+                id_from = pack * nonograms_per_pack
             
-            if save_nonogram(nonogram, id, self.output_dir):
-                print("nonograms/i/{} crawled successfully".format(id))
+            if pack != last_pack:
+                id_to = (pack + 1) * nonograms_per_pack - 1
+
+            print('pack #{}'.format(pack))
+            print('ids = ({}; {})'.format(id_from, id_to))
+
+            pack = { 'id': pack, 'nonograms': list() }
+
+            for id in range(id_from, id_to + 1):
+                html = get_html(session, self.base_url, self.endpoint_url, id)
+
+                if html is None:
+                    time.sleep(self.sleep_after_error)
+                    continue
+
+                pack['nonograms'].append(get_nonogram_from_html(html, id))
+                print("{}{} crawled successfully".format(self.endpoint_url, id))
+                    
+            if save_pack(pack, self.output_dir):
+                print("pack #{} saved".format(pack['id']))
             else:
-                print("failed to save nonograms/i/{}".format(id))
+                print("failed to save pack #{}".format(pack['id']))
 
 
 def main(argv):
