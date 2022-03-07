@@ -7,10 +7,12 @@ import time
 import sys
 import getopt
 import os
+import enum
 
-def get_html(id, session):
+
+def get_html(session, base_url, endpoint_url, id):
     try:
-        response = session.get('https://www.nonograms.ru/nonograms/i/{}'.format(id))
+        response = session.get('{}{}{}'.format(base_url, endpoint_url, id))
         response.html.render()
     except:
         print("Error during GET nonograms/i/{}".format(id))
@@ -27,7 +29,7 @@ def parse_td(td):
         return int(td.find("div").text)
 
 
-def get_nonogram_from_html(html):
+def get_nonogram_from_html(html, id):
     bs = BeautifulSoup(html, features="lxml")
 
     nonogram_table = bs.find("table", { "id": "nonogram_table", "class": "nonogram_table" })
@@ -63,7 +65,7 @@ def get_nonogram_from_html(html):
             if number != 0:
                 horizontals[i].append(number)
 
-    return { 'verticals': verticals, 'horizontals': horizontals }
+    return { 'id': id, 'verticals': verticals, 'horizontals': horizontals }
 
 
 def create_dir(dir):
@@ -99,17 +101,65 @@ def save_nonogram(nonogram, id, output_dir):
     return True
 
 
-def main(argv):
+class NonogramType(enum.Enum):
+    black_and_white = 1
+    colour = 2
+
+class NonogramCrawler:
     NONOGRAM_MIN_INDEX = 1
     NONOGRAM_MAX_INDEX = 54216
     DEFAULT_OUTPUT_DIR = "nonograms"
+    DEFAULT_SLEEP_AFTER_ERROR = 0.25
 
-    id_from = NONOGRAM_MIN_INDEX
-    id_to = NONOGRAM_MAX_INDEX
-    output_dir = DEFAULT_OUTPUT_DIR
+    def __init__(self):
+        self.nonogram_type = NonogramType.black_and_white
+        self.base_url = 'https://www.nonograms.ru/'
+        self.endpoint_url = 'nonograms/i/'
+        self.id_from = NonogramCrawler.NONOGRAM_MIN_INDEX
+        self.id_to = NonogramCrawler.NONOGRAM_MAX_INDEX
+        self.output_dir = NonogramCrawler.DEFAULT_OUTPUT_DIR
+        self.sleep_after_error = NonogramCrawler.DEFAULT_SLEEP_AFTER_ERROR
+
+
+    def set_type(self, nonogram_type: NonogramType):
+        self.nonogram_type = nonogram_type
+        if nonogram_type == NonogramType.black_and_white:
+            self.endpoint_url = 'nonograms/i/'
+        elif nonogram_type == NonogramType.colour:
+            self.endpoint_url = 'nonograms2/i/'
+
+
+    def set_id_from(self, id):
+        self.id_from = id
+
+
+    def set_id_to(self, id):
+        self.id_to = id
+    
+
+    def run(self):
+        session = HTMLSession()
+
+        for id in range(self.id_from, self.id_to + 1):
+            html = get_html(session, self.base_url, self.endpoint_url, id)
+
+            if html is None:
+                time.sleep(self.sleep_after_error)
+                continue
+
+            nonogram = get_nonogram_from_html(html, id)
+            
+            if save_nonogram(nonogram, id, self.output_dir):
+                print("nonograms/i/{} crawled successfully".format(id))
+            else:
+                print("failed to save nonograms/i/{}".format(id))
+
+
+def main(argv):
+    crawler = NonogramCrawler()
 
     try:
-        opts, args = getopt.getopt(argv,"h", ["from=", "to=", "output_dir="])
+        opts, args = getopt.getopt(argv, "h", [ "from=", "to=", "type=", "output_dir=" ])
     except getopt.GetoptError:
         print_usage()
         sys.exit(2)
@@ -118,29 +168,17 @@ def main(argv):
         if opt == "-h":
             print_usage()
         elif opt == "--from":
-            id_from = int(arg)
+            crawler.set_id_from(int(arg))
         elif opt == "--to":
-            id_to = int(arg)
+            crawler.set_id_to(int(arg))
+        elif opt == "--type":
+            crawler.set_type(NonogramType[arg])
         elif opt == "--output_dir":
-            output_dir = arg
+            crawler.set_output_dir = arg
     
-    print("id range: ({}, ..., {})".format(id_from, id_to))
+    crawler.run()
 
-    session = HTMLSession()
-
-    for id in range(id_from, id_to + 1):
-        html = get_html(id, session)
-
-        if html is None:
-            time.sleep(0.25)
-            continue
-
-        nonogram = get_nonogram_from_html(html)
-        
-        if save_nonogram(nonogram, id, output_dir):
-            print("nonograms/i/{} crawled successfully".format(id))
-        else:
-            print("failed to save nonograms/i/{}".format(id))
+    print("Crawler work ended")
 
 
 if __name__ == "__main__":
